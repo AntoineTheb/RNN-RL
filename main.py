@@ -11,17 +11,17 @@ from utils import memory
 
 # Runs policy for X episodes and returns average reward
 # A fixed seed is used for the eval environment
-def eval_policy(policy, env_name, seed, eval_episodes=10):
+def eval_policy(policy, env_name, seed, eval_episodes=10, test=False):
     eval_env = gym.make(env_name)
     eval_env.seed(seed + 100)
 
     avg_reward = 0.
     for _ in range(eval_episodes):
-        # eval_env.render(mode='human', close=False)
+        if test:
+            eval_env.render(mode='human', close=False)
         state, done = eval_env.reset(), False
         hidden = None
         while not done:
-            # eval_env.render(mode='human')
             action, hidden = policy.select_action(np.array(state), hidden)
             state, reward, done, _ = eval_env.step(action)
             avg_reward += reward
@@ -43,9 +43,9 @@ def main():
     # Sets Gym, PyTorch and Numpy seeds
     parser.add_argument("--seed", default=0, type=int)
     # Time steps initial random policy is used
-    parser.add_argument("--start_timesteps", default=1e4, type=int)
+    parser.add_argument("--start_timesteps", default=1e3, type=int)
     # How often (time steps) we evaluate
-    parser.add_argument("--eval_freq", default=1e3, type=int)
+    parser.add_argument("--eval_freq", default=5e2, type=int)
     # Max time steps to run environment
     parser.add_argument("--max_timesteps", default=1e6, type=int)
     # Std of Gaussian exploration noise
@@ -53,7 +53,9 @@ def main():
     # Batch size for both actor and critic
     parser.add_argument("--batch_size", default=5e3, type=int)
     # Memory size
-    parser.add_argument("--memory_size", default=1e4, type=int)
+    parser.add_argument("--memory_size", default=1e5, type=int)
+    # Learning rate
+    parser.add_argument("--lr", default=1e-5, type=float)
     # Discount factor
     parser.add_argument("--discount", default=0.99)
     # Target network update rate
@@ -119,10 +121,10 @@ def main():
         policy.load(f"./models/{policy_file}")
 
     if args.test:
-        eval_policy(policy, args.env, args.seed)
-        exit
+        eval_policy(policy, args.env, args.seed, test=True)
+        return
 
-    replay_buffer = utils.ReplayBuffer(
+    replay_buffer = memory.ReplayBuffer(
         state_dim, action_dim, args.memory_size)
 
     # Evaluate untrained policy

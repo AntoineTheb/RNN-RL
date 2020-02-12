@@ -48,10 +48,10 @@ class ReplayBuffer(object):
     def sample(self, batch_size):
         ind = np.random.randint(0, self.size, size=int(batch_size))
 
-        h = torch.tensor(self.h[ind][None, ...], requires_grad=True).to(self.device)
-        c = torch.tensor(self.c[ind][None, ...], requires_grad=True).to(self.device)
-        nh = torch.tensor(self.nh[ind][None, ...], requires_grad=True).to(self.device)
-        nc = torch.tensor(self.nc[ind][None, ...], requires_grad=True).to(self.device)
+        h = torch.tensor(self.h[ind][None, ...], requires_grad=True, dtype=torch.float).to(self.device)
+        c = torch.tensor(self.c[ind][None, ...], requires_grad=True, dtype=torch.float).to(self.device)
+        nh = torch.tensor(self.nh[ind][None, ...], requires_grad=True, dtype=torch.float).to(self.device)
+        nc = torch.tensor(self.nc[ind][None, ...], requires_grad=True, dtype=torch.float).to(self.device)
 
         s = torch.FloatTensor(self.state[ind][:, None, :]).to(self.device)
         a = torch.FloatTensor(self.action[ind][:, None, :]).to(self.device)

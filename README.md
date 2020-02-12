@@ -20,3 +20,5 @@ An other option would be to keep the hidden state of the RNN associated with eac
 - DDPG
 - PPO (WIP)
 
+## Requirements
+  

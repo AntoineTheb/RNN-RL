@@ -6,7 +6,7 @@ import torch.nn.functional as F
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+print(torch.cuda.is_available(), torch.backends.cudnn.enabled)
 # Implementation of Twin Delayed Deep Deterministic Policy Gradients (TD3)
 # Paper: https://arxiv.org/abs/1802.09477
 
@@ -16,7 +16,8 @@ class Actor(nn.Module):
         super(Actor, self).__init__()
 
         self.l1 = nn.LSTM(state_dim, 256, batch_first=True)
-        self.l2 = nn.Linear(256, action_dim)
+        self.l2 = nn.Linear(256, 256)
+        self.l3 = nn.Linear(256, action_dim)
 
         self.max_action = max_action
 
@@ -24,8 +25,9 @@ class Actor(nn.Module):
         self.l1.flatten_parameters()
 
         a, h = self.l1(state, hidden)
-        a = F.relu(self.l2(a))
-        return self.max_action * a, h
+        a = self.l2(a)
+        a = F.relu(self.l3(a))
+        return self.max_action * torch.tanh(a), h
 
 
 class Critic(nn.Module):
@@ -34,23 +36,27 @@ class Critic(nn.Module):
 
         # Q1 architecture
         self.l1 = nn.LSTM(state_dim + action_dim, 256, batch_first=True)
-        self.l2 = nn.Linear(256, 1)
+        self.l2 = nn.Linear(256, 256)
+        self.l3 = nn.Linear(256, 1)
 
         # Q2 architecture
-        self.l3 = nn.LSTM(state_dim + action_dim, 256, batch_first=True)
-        self.l4 = nn.Linear(256, 1)
+        self.l4 = nn.LSTM(state_dim + action_dim, 256, batch_first=True)
+        self.l5 = nn.Linear(256, 256)
+        self.l6 = nn.Linear(256, 1)
 
     def forward(self, state, action, hidden1, hidden2):
         self.l1.flatten_parameters()
-        self.l3.flatten_parameters()
+        self.l4.flatten_parameters()
 
         sa = torch.cat([state, action], -1)
 
         q1, hidden1 = self.l1(sa, hidden1)
-        q1 = self.l2(q1)
+        q1 = F.relu(self.l2(q1))
+        q1 = self.l3(q1)
 
-        q2, hidden2 = self.l3(sa, hidden2)
-        q2 = self.l4(q2)
+        q2, hidden2 = self.l4(sa, hidden2)
+        q2 = F.relu(self.l5(q2))
+        q2 = self.l6(q2)
 
         return q1, q2
 
@@ -60,7 +66,8 @@ class Critic(nn.Module):
         sa = torch.cat([state, action], -1)
 
         q1, hidden = self.l1(sa, hidden1)
-        q1 = self.l2(q1)
+        q1 = F.relu(self.l2(q1))
+        q1 = self.l3(q1)
 
         return q1
 
@@ -101,13 +108,15 @@ class TD3(object):
         h_0 = torch.zeros((
             self.actor.l1.num_layers,
             1,
-            self.actor.l1.hidden_size))
+            self.actor.l1.hidden_size),
+            dtype=torch.float)
         h_0 = h_0.to(device=device)
 
         c_0 = torch.zeros((
             self.actor.l1.num_layers,
             1,
-            self.actor.l1.hidden_size))
+            self.actor.l1.hidden_size),
+            dtype=torch.float)
         c_0 = c_0.to(device=device)
         return (h_0, c_0)
 
@@ -137,7 +146,7 @@ class TD3(object):
             target_Q1, target_Q2 = self.critic_target(
                 next_state, next_action, next_hidden, next_hidden)
             target_Q = torch.min(target_Q1, target_Q2)
-            target_Q = reward + not_done * self.discount * target_Q
+            target_Q = reward + (not_done * self.discount * target_Q)
 
         # Get current Q estimates
         current_Q1, current_Q2 = self.critic(state, action, hidden, hidden)
@@ -149,7 +158,7 @@ class TD3(object):
         # Optimize the critic
         self.critic_optimizer.zero_grad()
         critic_loss.backward(retain_graph=True)
-        assert(np.any([torch.sum(p.grad) != 0 for p in self.critic.parameters()]))
+        # assert(np.any([torch.sum(p.grad) != 0 for p in self.critic.parameters()]))
         self.critic_optimizer.step()
 
         # Delayed policy updates
@@ -162,7 +171,7 @@ class TD3(object):
             # Optimize the actor
             self.actor_optimizer.zero_grad()
             actor_loss.backward(retain_graph=True)
-            assert(np.any([torch.sum(p.grad) != 0 for p in self.actor.parameters()]))
+            # assert(np.any([torch.sum(p.grad) != 0 for p in self.actor.parameters()]))
             self.actor_optimizer.step()
 
             # Update the frozen target models
