@@ -1,13 +1,12 @@
-import numpy as np
-import torch
-import gym
-import pybulletgym  # noqa F401 register PyBullet enviroments with open ai gym
 import argparse
+import gym
+import numpy as np
 import os
+import pybulletgym  # noqa F401 register PyBullet enviroments with open ai gym
+import torch
 
-import utils
-import TD3
-import DDPG
+from algos import DDPG, TD3
+from utils import memory
 
 
 # Runs policy for X episodes and returns average reward
