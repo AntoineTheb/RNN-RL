@@ -3,7 +3,7 @@ import torch
 
 
 class ReplayBuffer(object):
-    def __init__(self, state_dim, action_dim, max_size=int(5e3)):
+    def __init__(self, state_dim, action_dim, hidden_size, max_size=int(5e3)):
         self.max_size = int(max_size)
         self.ptr = 0
         self.size = 0
@@ -14,11 +14,11 @@ class ReplayBuffer(object):
         self.reward = np.zeros((self.max_size, 1))
         self.not_done = np.zeros((self.max_size, 1))
 
-        self.h = np.zeros((self.max_size, 256))
-        self.nh = np.zeros((self.max_size, 256))
+        self.h = np.zeros((self.max_size, hidden_size))
+        self.nh = np.zeros((self.max_size, hidden_size))
 
-        self.c = np.zeros((self.max_size, 256))
-        self.nc = np.zeros((self.max_size, 256))
+        self.c = np.zeros((self.max_size, hidden_size))
+        self.nc = np.zeros((self.max_size, hidden_size))
 
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
@@ -48,10 +48,18 @@ class ReplayBuffer(object):
     def sample(self, batch_size):
         ind = np.random.randint(0, self.size, size=int(batch_size))
 
-        h = torch.tensor(self.h[ind][None, ...], requires_grad=True, dtype=torch.float).to(self.device)
-        c = torch.tensor(self.c[ind][None, ...], requires_grad=True, dtype=torch.float).to(self.device)
-        nh = torch.tensor(self.nh[ind][None, ...], requires_grad=True, dtype=torch.float).to(self.device)
-        nc = torch.tensor(self.nc[ind][None, ...], requires_grad=True, dtype=torch.float).to(self.device)
+        h = torch.tensor(self.h[ind][None, ...],
+                         requires_grad=True,
+                         dtype=torch.float).to(self.device)
+        c = torch.tensor(self.c[ind][None, ...],
+                         requires_grad=True,
+                         dtype=torch.float).to(self.device)
+        nh = torch.tensor(self.nh[ind][None, ...],
+                          requires_grad=True,
+                          dtype=torch.float).to(self.device)
+        nc = torch.tensor(self.nc[ind][None, ...],
+                          requires_grad=True,
+                          dtype=torch.float).to(self.device)
 
         s = torch.FloatTensor(self.state[ind][:, None, :]).to(self.device)
         a = torch.FloatTensor(self.action[ind][:, None, :]).to(self.device)

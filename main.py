@@ -66,6 +66,8 @@ def main():
     parser.add_argument("--noise_clip", default=0.5)
     # Frequency of delayed policy updates
     parser.add_argument("--policy_freq", default=2, type=int)
+    # Model width
+    parser.add_argument("--hidden_size", default=64, type=int)
     # Save model and optimizer parameters
     parser.add_argument("--save_model", action="store_true")
     # Model load file name, "" doesn't load, "default" uses file_name
@@ -100,6 +102,7 @@ def main():
         "state_dim": state_dim,
         "action_dim": action_dim,
         "max_action": max_action,
+        "hidden_dim": args.hidden_size,
         "discount": args.discount,
         "tau": args.tau,
     }
@@ -125,7 +128,7 @@ def main():
         return
 
     replay_buffer = memory.ReplayBuffer(
-        state_dim, action_dim, args.memory_size)
+        state_dim, action_dim, args.hidden_size, args.memory_size)
 
     # Evaluate untrained policy
     evaluations = [eval_policy(policy, env, args.seed)]
