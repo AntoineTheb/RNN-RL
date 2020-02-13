@@ -32,11 +32,11 @@ class Actor(nn.Module):
             self.l1.flatten_parameters()
             a, h = self.l1(state, hidden)
         else:
-            a, h = self.l1(state), None
+            a, h = F.relu(self.l1(state)), None
 
-        a = self.l2(a)
-        a = F.relu(self.l3(a))
-        return self.max_action * torch.tanh(a), h
+        a = F.relu(self.l2(a))
+        a = torch.tanh(self.l3(a))
+        return self.max_action * a, h
 
 
 class Critic(nn.Module):
@@ -62,7 +62,7 @@ class Critic(nn.Module):
             self.l1.flatten_parameters()
             q1, hidden = self.l1(sa, hidden)
         else:
-            q1, hidden = self.l1(sa), None
+            q1, hidden = F.relu(self.l1(sa)), None
 
         q1 = F.relu(self.l2(q1))
         q1 = self.l3(q1)
@@ -72,11 +72,18 @@ class Critic(nn.Module):
 
 class DDPG(object):
     def __init__(
-        self, state_dim, action_dim, max_action,
-        hidden_dim, discount=0.99, tau=0.005,
-        recurrent_actor=False, recurrent_critic=False,
-
+        self,
+        state_dim,
+        action_dim,
+        max_action,
+        hidden_dim,
+        discount=0.99,
+        tau=0.005,
+        lr=3e-4,
+        recurrent_actor=False,
+        recurrent_critic=False,
     ):
+        self.recurrent = recurrent_actor
         self.actor = Actor(
             state_dim, action_dim, hidden_dim, max_action,
             is_recurrent=recurrent_actor
@@ -113,7 +120,12 @@ class DDPG(object):
         return (h_0, c_0)
 
     def select_action(self, state, hidden):
-        state = torch.FloatTensor(state.reshape(1, -1)).to(device)[:, None, :]
+        if self.recurrent:
+            state = torch.FloatTensor(
+                state.reshape(1, -1)).to(device)[:, None, :]
+        else:
+            state = torch.FloatTensor(state.reshape(1, -1)).to(device)
+
         action, hidden = self.actor(state, hidden)
         return action.cpu().data.numpy().flatten(), hidden
 
@@ -138,7 +150,7 @@ class DDPG(object):
 
         # Optimize the critic
         self.critic_optimizer.zero_grad()
-        critic_loss.backward(retain_graph=True)
+        critic_loss.backward()
         self.critic_optimizer.step()
 
         # Compute actor loss
@@ -147,7 +159,7 @@ class DDPG(object):
 
         # Optimize the actor
         self.actor_optimizer.zero_grad()
-        actor_loss.backward(retain_graph=True)
+        actor_loss.backward()
         self.actor_optimizer.step()
 
         # Update the frozen target models
@@ -178,3 +190,11 @@ class DDPG(object):
         self.actor.load_state_dict(torch.load(filename + "_actor"))
         self.actor_optimizer.load_state_dict(
             torch.load(filename + "_actor_optimizer"))
+
+    def eval_mode(self):
+        self.actor.eval()
+        self.critic.eval()
+
+    def train_mode(self):
+        self.actor.train()
+        self.critic.train()

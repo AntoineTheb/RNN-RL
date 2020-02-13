@@ -12,10 +12,12 @@ from utils import memory
 
 # Runs policy for X episodes and returns average reward
 # A fixed seed is used for the eval environment
-def eval_policy(policy, env, seed, eval_episodes=10, test=False):
-
-    env.seed(int(seed) + 123)
+def eval_policy(policy, env_name, seed, eval_episodes=10, test=False):
+    policy.eval_mode()
     avg_reward = 0.
+    env = gym.make(env_name)
+    env.seed(seed + 100)
+
     for _ in range(eval_episodes):
         if test:
             env.render(mode='human', close=False)
@@ -31,6 +33,7 @@ def eval_policy(policy, env, seed, eval_episodes=10, test=False):
 
     avg_reward /= eval_episodes
 
+    policy.train_mode()
     print("---------------------------------------")
     print(f"Evaluation over {eval_episodes} episodes: {avg_reward:.3f}")
     print("---------------------------------------")
@@ -42,13 +45,13 @@ def main():
     # Policy name (TD3, DDPG or OurDDPG)
     parser.add_argument("--policy", default="TD3")
     # OpenAI gym environment name
-    parser.add_argument("--env", default="Walker2DBulletEnv-v0")
+    parser.add_argument("--env", default="HopperBulletEnv-v0")
     # Sets Gym, PyTorch and Numpy seeds
     parser.add_argument("--seed", default=0, type=int)
     # Time steps initial random policy is used
     parser.add_argument("--start_timesteps", default=1e4, type=int)
     # How often (time steps) we evaluate
-    parser.add_argument("--eval_freq", default=1e3, type=int)
+    parser.add_argument("--eval_freq", default=5e3, type=int)
     # Max time steps to run environment
     parser.add_argument("--max_timesteps", default=1e6, type=int)
     # Std of Gaussian exploration noise
@@ -56,9 +59,9 @@ def main():
     # Batch size for both actor and critic
     parser.add_argument("--batch_size", default=100, type=int)
     # Memory size
-    parser.add_argument("--memory_size", default=1e4, type=int)
+    parser.add_argument("--memory_size", default=1e6, type=int)
     # Learning rate
-    parser.add_argument("--lr", default=1e-3, type=float)
+    parser.add_argument("--lr", default=3e-4, type=float)
     # Discount factor
     parser.add_argument("--discount", default=0.99)
     # Target network update rate
@@ -70,7 +73,7 @@ def main():
     # Frequency of delayed policy updates
     parser.add_argument("--policy_freq", default=2, type=int)
     # Model width
-    parser.add_argument("--hidden_size", default=64, type=int)
+    parser.add_argument("--hidden_size", default=256, type=int)
     # Save model and optimizer parameters
     parser.add_argument("--save_model", action="store_true")
     # Model load file name, "" doesn't load, "default" uses file_name
@@ -101,6 +104,7 @@ def main():
     action_dim = env.action_space.shape[0]
     max_action = float(env.action_space.high[0])
 
+    # TODO: Add this to parameters
     recurrent_actor = True
     recurrent_critic = True
 
@@ -129,10 +133,10 @@ def main():
     if args.load_model != "":
         policy_file = file_name \
             if args.load_model == "default" else args.load_model
-        policy.load(f"./models/{policy_file}")
+        policy.load(f"{policy_file}")
 
     if args.test:
-        eval_policy(policy, env, args.seed, eval_episodes=10, test=True)
+        eval_policy(policy, args.env, args.seed, eval_episodes=10, test=True)
         return
 
     replay_buffer = memory.ReplayBuffer(
@@ -140,11 +144,10 @@ def main():
         args.memory_size, recurrent=recurrent_actor)
 
     # Evaluate untrained policy
-    evaluations = [eval_policy(policy, env, args.seed)]
+    evaluations = [eval_policy(policy, args.env, args.seed)]
 
     best_reward = evaluations[-1]
 
-    env.seed(args.seed)
     state, done = env.reset(), False
     episode_reward = 0
     episode_timesteps = 0
@@ -190,7 +193,6 @@ def main():
                 f"Total T: {t+1} Episode Num: {episode_num+1} "
                 f"Episode T: {episode_timesteps} Reward: {episode_reward:.3f}")
             # Reset environment
-            env.seed(args.seed)
             state, done = env.reset(), False
             episode_reward = 0
             episode_timesteps = 0
@@ -199,7 +201,7 @@ def main():
 
         # Evaluate episode
         if (t + 1) % args.eval_freq == 0:
-            evaluations.append(eval_policy(policy, env, args.seed))
+            evaluations.append(eval_policy(policy, args.env, args.seed))
             if evaluations[-1] > best_reward and args.save_model:
                 policy.save(f"./models/{file_name}")
 
