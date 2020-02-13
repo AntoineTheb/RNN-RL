@@ -1,5 +1,4 @@
 import copy
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -12,60 +11,88 @@ print(torch.cuda.is_available(), torch.backends.cudnn.enabled)
 
 
 class Actor(nn.Module):
-    def __init__(self, state_dim, action_dim, hidden_dim, max_action):
+    def __init__(
+        self, state_dim, action_dim, hidden_dim, max_action, is_recurrent=True
+    ):
         super(Actor, self).__init__()
+        self.recurrent = is_recurrent
 
-        self.l1 = nn.LSTM(state_dim, hidden_dim, batch_first=True)
+        if self.recurrent:
+            self.l1 = nn.LSTM(state_dim, hidden_dim, batch_first=True)
+        else:
+            self.l1 = nn.Linear(state_dim, hidden_dim)
+
         self.l2 = nn.Linear(hidden_dim, hidden_dim)
         self.l3 = nn.Linear(hidden_dim, action_dim)
 
         self.max_action = max_action
 
     def forward(self, state, hidden):
-        self.l1.flatten_parameters()
+        if self.recurrent:
+            self.l1.flatten_parameters()
+            a, h = self.l1(state, hidden)
+        else:
+            a, h = self.l1(state), None
 
-        a, h = self.l1(state, hidden)
         a = self.l2(a)
         a = F.relu(self.l3(a))
         return self.max_action * torch.tanh(a), h
 
 
 class Critic(nn.Module):
-    def __init__(self, state_dim, action_dim, hidden_dim):
+    def __init__(
+        self, state_dim, action_dim, hidden_dim, is_recurrent=True
+    ):
         super(Critic, self).__init__()
+        self.recurrent = is_recurrent
 
         # Q1 architecture
-        self.l1 = nn.LSTM(state_dim + action_dim, hidden_dim, batch_first=True)
+        if self.recurrent:
+            self.l1 = nn.LSTM(
+                state_dim + action_dim, hidden_dim, batch_first=True)
+        else:
+            self.l1 = nn.Linear(state_dim + action_dim, hidden_dim)
+
         self.l2 = nn.Linear(hidden_dim, hidden_dim)
         self.l3 = nn.Linear(hidden_dim, 1)
 
         # Q2 architecture
-        self.l4 = nn.LSTM(state_dim + action_dim, hidden_dim, batch_first=True)
+        if self.recurrent:
+            self.l4 = nn.LSTM(
+                state_dim + action_dim, hidden_dim, batch_first=True)
+        else:
+            self.l4 = nn.Linear(state_dim + action_dim, hidden_dim)
+
         self.l5 = nn.Linear(hidden_dim, hidden_dim)
         self.l6 = nn.Linear(hidden_dim, 1)
 
     def forward(self, state, action, hidden1, hidden2):
-        self.l1.flatten_parameters()
-        self.l4.flatten_parameters()
-
         sa = torch.cat([state, action], -1)
+        if self.recurrent:
+            self.l1.flatten_parameters()
+            self.l4.flatten_parameters()
+            q1, hidden1 = self.l1(sa, hidden1)
+            q2, hidden2 = self.l4(sa, hidden2)
+        else:
+            q1, hidden1 = self.l1(sa), None
+            q2, hidden2 = self.l4(sa), None
 
-        q1, hidden1 = self.l1(sa, hidden1)
         q1 = F.relu(self.l2(q1))
         q1 = self.l3(q1)
 
-        q2, hidden2 = self.l4(sa, hidden2)
         q2 = F.relu(self.l5(q2))
         q2 = self.l6(q2)
 
         return q1, q2
 
     def Q1(self, state, action, hidden1):
-        self.l1.flatten_parameters()
-
         sa = torch.cat([state, action], -1)
+        if self.recurrent:
+            self.l1.flatten_parameters()
+            q1, hidden1 = self.l1(sa, hidden1)
+        else:
+            q1, hidden1 = self.l1(sa), None
 
-        q1, hidden = self.l1(sa, hidden1)
         q1 = F.relu(self.l2(q1))
         q1 = self.l3(q1)
 
@@ -83,15 +110,23 @@ class TD3(object):
             tau=0.005,
             policy_noise=0.2,
             noise_clip=0.5,
-            policy_freq=2
+            policy_freq=2,
+            recurrent_actor=True,
+            recurrent_critic=True,
     ):
 
-        self.actor = Actor(state_dim, action_dim, hidden_dim, max_action).to(device)
+        self.actor = Actor(
+            state_dim, action_dim, hidden_dim, max_action,
+            recurrent_actor=recurrent_actor
+        ).to(device)
         self.actor_target = copy.deepcopy(self.actor)
         self.actor_optimizer = torch.optim.Adam(
             self.actor.parameters(), lr=3e-4)
 
-        self.critic = Critic(state_dim, action_dim, hidden_dim).to(device)
+        self.critic = Critic(
+            state_dim, action_dim, hidden_dim,
+            recurrent_critic=recurrent_critic
+        ).to(device)
         self.critic_target = copy.deepcopy(self.critic)
         self.critic_optimizer = torch.optim.Adam(
             self.critic.parameters(), lr=3e-4)
@@ -159,7 +194,6 @@ class TD3(object):
         # Optimize the critic
         self.critic_optimizer.zero_grad()
         critic_loss.backward(retain_graph=True)
-        # assert(np.any([torch.sum(p.grad) != 0 for p in self.critic.parameters()]))
         self.critic_optimizer.step()
 
         # Delayed policy updates
@@ -172,7 +206,6 @@ class TD3(object):
             # Optimize the actor
             self.actor_optimizer.zero_grad()
             actor_loss.backward(retain_graph=True)
-            # assert(np.any([torch.sum(p.grad) != 0 for p in self.actor.parameters()]))
             self.actor_optimizer.step()
 
             # Update the frozen target models

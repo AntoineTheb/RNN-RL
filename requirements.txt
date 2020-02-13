@@ -2,12 +2,10 @@ certifi==2019.11.28
 chardet==3.0.4
 cloudpickle==1.2.2
 future==0.18.2
--e git+https://github.com/openai/gym.git@4ca60758b44b6ae9080ca47a72f52c2035a4133f#egg=gym
 idna==2.8
 numpy==1.18.1
 Pillow==7.0.0
 pybullet==2.6.5
--e git+https://github.com/benelot/pybullet-gym.git@79396fccc1d0e170a092b50137148da48ee2edab#egg=pybulletgym
 pyglet==1.4.10
 requests==2.22.0
 scipy==1.4.1
