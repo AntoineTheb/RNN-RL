@@ -12,50 +12,82 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class Actor(nn.Module):
-    def __init__(self, state_dim, action_dim, max_action):
+    def __init__(
+        self, state_dim, action_dim, hidden_dim, max_action, is_recurrent=True
+    ):
         super(Actor, self).__init__()
+        self.recurrent = is_recurrent
 
-        self.l1 = nn.LSTM(state_dim, 256, batch_first=True)
-        self.l2 = nn.Linear(256, action_dim)
+        if self.recurrent:
+            self.l1 = nn.LSTM(state_dim, hidden_dim, batch_first=True)
+        else:
+            self.l1 = nn.Linear(state_dim, hidden_dim)
+
+        self.l2 = nn.Linear(hidden_dim, hidden_dim)
+        self.l3 = nn.Linear(hidden_dim, action_dim)
 
         self.max_action = max_action
 
     def forward(self, state, hidden):
-        self.l1.flatten_parameters()
+        if self.recurrent:
+            self.l1.flatten_parameters()
+            a, h = self.l1(state, hidden)
+        else:
+            a, h = self.l1(state), None
 
-        a, h = self.l1(state, hidden)
-        a = F.relu(self.l2(a))
-        return self.max_action * a, h
+        a = self.l2(a)
+        a = F.relu(self.l3(a))
+        return self.max_action * torch.tanh(a), h
 
 
 class Critic(nn.Module):
-    def __init__(self, state_dim, action_dim):
+    def __init__(
+        self, state_dim, action_dim, hidden_dim, is_recurrent=True
+    ):
         super(Critic, self).__init__()
+        self.recurrent = is_recurrent
 
         # Q1 architecture
-        self.l1 = nn.LSTM(state_dim + action_dim, 256, batch_first=True)
-        self.l2 = nn.Linear(256, 1)
+        if self.recurrent:
+            self.l1 = nn.LSTM(
+                state_dim + action_dim, hidden_dim, batch_first=True)
+        else:
+            self.l1 = nn.Linear(state_dim + action_dim, hidden_dim)
+
+        self.l2 = nn.Linear(hidden_dim, hidden_dim)
+        self.l3 = nn.Linear(hidden_dim, 1)
 
     def forward(self, state, action, hidden):
-        self.l1.flatten_parameters()
-
         sa = torch.cat([state, action], -1)
+        if self.recurrent:
+            self.l1.flatten_parameters()
+            q1, hidden = self.l1(sa, hidden)
+        else:
+            q1, hidden = self.l1(sa), None
 
-        q1, hidden1 = self.l1(sa, hidden)
-        q1 = self.l2(q1)
+        q1 = F.relu(self.l2(q1))
+        q1 = self.l3(q1)
 
         return q1
 
 
 class DDPG(object):
     def __init__(
-        self, state_dim, action_dim, max_action, discount=0.99, tau=0.005
+        self, state_dim, action_dim, max_action, hidden_dim, discount=0.99, tau=0.005,
+        recurrent_actor=False, recurrent_critic=False,
+
     ):
-        self.actor = Actor(state_dim, action_dim, max_action).to(device)
+        self.actor = Actor(
+            state_dim, action_dim, hidden_dim, max_action,
+            is_recurrent=recurrent_actor
+        ).to(device)
         self.actor_target = copy.deepcopy(self.actor)
         self.actor_optimizer = torch.optim.Adam(self.actor.parameters())
 
-        self.critic = Critic(state_dim, action_dim).to(device)
+        self.critic = Critic(
+            state_dim, action_dim, hidden_dim,
+            is_recurrent=recurrent_critic
+        ).to(device)
         self.critic_target = copy.deepcopy(self.critic)
         self.critic_optimizer = torch.optim.Adam(self.critic.parameters())
 
@@ -63,17 +95,21 @@ class DDPG(object):
         self.tau = tau
 
     def get_initial_states(self):
-        h_0 = torch.zeros((
-            self.actor.l1.num_layers,
-            1,
-            self.actor.l1.hidden_size))
-        h_0 = h_0.to(device=device)
+        h_0, c_0 = None, None
+        if self.actor.recurrent:
+            h_0 = torch.zeros((
+                self.actor.l1.num_layers,
+                1,
+                self.actor.l1.hidden_size),
+                dtype=torch.float)
+            h_0 = h_0.to(device=device)
 
-        c_0 = torch.zeros((
-            self.actor.l1.num_layers,
-            1,
-            self.actor.l1.hidden_size))
-        c_0 = c_0.to(device=device)
+            c_0 = torch.zeros((
+                self.actor.l1.num_layers,
+                1,
+                self.actor.l1.hidden_size),
+                dtype=torch.float)
+            c_0 = c_0.to(device=device)
         return (h_0, c_0)
 
     def select_action(self, state, hidden):

@@ -98,6 +98,9 @@ def main():
     action_dim = env.action_space.shape[0]
     max_action = float(env.action_space.high[0])
 
+    recurrent_actor = False
+    recurrent_critic = False
+
     kwargs = {
         "state_dim": state_dim,
         "action_dim": action_dim,
@@ -105,6 +108,8 @@ def main():
         "hidden_dim": args.hidden_size,
         "discount": args.discount,
         "tau": args.tau,
+        "recurrent_actor": recurrent_actor,
+        "recurrent_critic": recurrent_critic,
     }
 
     # Initialize policy
@@ -128,7 +133,8 @@ def main():
         return
 
     replay_buffer = memory.ReplayBuffer(
-        state_dim, action_dim, args.hidden_size, args.memory_size)
+        state_dim, action_dim, args.hidden_size,
+        args.memory_size, recurrent=recurrent_actor)
 
     # Evaluate untrained policy
     evaluations = [eval_policy(policy, env, args.seed)]
@@ -195,6 +201,7 @@ def main():
                 policy.save(f"./models/{file_name}")
 
             np.save(f"./results/{file_name}", evaluations)
+
 
 if __name__ == "__main__":
     main()
