@@ -111,13 +111,13 @@ class TD3(object):
             policy_noise=0.2,
             noise_clip=0.5,
             policy_freq=2,
-            recurrent_actor=True,
-            recurrent_critic=True,
+            recurrent_actor=False,
+            recurrent_critic=False,
     ):
 
         self.actor = Actor(
             state_dim, action_dim, hidden_dim, max_action,
-            recurrent_actor=recurrent_actor
+            is_recurrent=recurrent_actor
         ).to(device)
         self.actor_target = copy.deepcopy(self.actor)
         self.actor_optimizer = torch.optim.Adam(
@@ -125,7 +125,7 @@ class TD3(object):
 
         self.critic = Critic(
             state_dim, action_dim, hidden_dim,
-            recurrent_critic=recurrent_critic
+            is_recurrent=recurrent_critic
         ).to(device)
         self.critic_target = copy.deepcopy(self.critic)
         self.critic_optimizer = torch.optim.Adam(
@@ -141,19 +141,21 @@ class TD3(object):
         self.total_it = 0
 
     def get_initial_states(self):
-        h_0 = torch.zeros((
-            self.actor.l1.num_layers,
-            1,
-            self.actor.l1.hidden_size),
-            dtype=torch.float)
-        h_0 = h_0.to(device=device)
+        h_0, c_0 = None, None
+        if self.actor.recurrent:
+            h_0 = torch.zeros((
+                self.actor.l1.num_layers,
+                1,
+                self.actor.l1.hidden_size),
+                dtype=torch.float)
+            h_0 = h_0.to(device=device)
 
-        c_0 = torch.zeros((
-            self.actor.l1.num_layers,
-            1,
-            self.actor.l1.hidden_size),
-            dtype=torch.float)
-        c_0 = c_0.to(device=device)
+            c_0 = torch.zeros((
+                self.actor.l1.num_layers,
+                1,
+                self.actor.l1.hidden_size),
+                dtype=torch.float)
+            c_0 = c_0.to(device=device)
         return (h_0, c_0)
 
     def select_action(self, state, hidden):

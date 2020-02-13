@@ -5,7 +5,7 @@ import torch
 class ReplayBuffer(object):
     def __init__(
         self, state_dim, action_dim, hidden_size,
-        max_size=int(5e3), recurrent=True
+        max_size=int(5e3), recurrent=False
     ):
         self.max_size = int(max_size)
         self.ptr = 0
@@ -31,10 +31,6 @@ class ReplayBuffer(object):
     def add(
         self, state, action, next_state, reward, done, hiddens, next_hiddens
     ):
-
-        h, c = hiddens
-        nh, nc = next_hiddens
-
         self.state[self.ptr] = state
         self.action[self.ptr] = action
         self.next_state[self.ptr] = next_state
@@ -42,6 +38,9 @@ class ReplayBuffer(object):
         self.not_done[self.ptr] = 1. - done
 
         if self.recurrent:
+            h, c = hiddens
+            nh, nc = next_hiddens
+
             # Detach the hidden state so that BPTT only goes through 1 timestep
             self.h[self.ptr] = h.detach().cpu()
             self.c[self.ptr] = c.detach().cpu()
