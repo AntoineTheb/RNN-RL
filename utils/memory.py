@@ -68,15 +68,27 @@ class ReplayBuffer(object):
                               dtype=torch.float).to(self.device)
             hidden = (h, c)
             next_hidden = (nh, nc)
+
+            s = torch.FloatTensor(
+                self.state[ind][:, None, :]).to(self.device)
+            a = torch.FloatTensor(
+                self.action[ind][:, None, :]).to(self.device)
+            ns = torch.FloatTensor(
+                self.next_state[ind][:, None, :]).to(self.device)
+            r = torch.FloatTensor(
+                self.reward[ind][:, None, :]).to(self.device)
+            d = torch.FloatTensor(
+                self.not_done[ind][:, None, :]).to(self.device)
+
         else:
             hidden = None
             next_hidden = None
 
-        s = torch.FloatTensor(self.state[ind][:, None, :]).to(self.device)
-        a = torch.FloatTensor(self.action[ind][:, None, :]).to(self.device)
-        ns = \
-            torch.FloatTensor(self.next_state[ind][:, None, :]).to(self.device)
-        r = torch.FloatTensor(self.reward[ind][:, None, :]).to(self.device)
-        d = torch.FloatTensor(self.not_done[ind][:, None, :]).to(self.device)
+            s = torch.FloatTensor(self.state[ind]).to(self.device)
+            a = torch.FloatTensor(self.action[ind]).to(self.device)
+            ns = \
+                torch.FloatTensor(self.next_state[ind]).to(self.device)
+            r = torch.FloatTensor(self.reward[ind]).to(self.device)
+            d = torch.FloatTensor(self.not_done[ind]).to(self.device)
 
         return s, a, ns, r, d, hidden, next_hidden

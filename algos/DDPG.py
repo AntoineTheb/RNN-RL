@@ -1,5 +1,4 @@
 import copy
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -73,7 +72,8 @@ class Critic(nn.Module):
 
 class DDPG(object):
     def __init__(
-        self, state_dim, action_dim, max_action, hidden_dim, discount=0.99, tau=0.005,
+        self, state_dim, action_dim, max_action,
+        hidden_dim, discount=0.99, tau=0.005,
         recurrent_actor=False, recurrent_critic=False,
 
     ):
@@ -139,7 +139,6 @@ class DDPG(object):
         # Optimize the critic
         self.critic_optimizer.zero_grad()
         critic_loss.backward(retain_graph=True)
-        assert(np.any([torch.sum(p.grad) != 0 for p in self.critic.parameters()]))
         self.critic_optimizer.step()
 
         # Compute actor loss
@@ -149,7 +148,6 @@ class DDPG(object):
         # Optimize the actor
         self.actor_optimizer.zero_grad()
         actor_loss.backward(retain_graph=True)
-        assert(np.any([torch.sum(p.grad) != 0 for p in self.actor.parameters()]))
         self.actor_optimizer.step()
 
         # Update the frozen target models

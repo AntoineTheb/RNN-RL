@@ -2,7 +2,8 @@ import argparse
 import gym
 import numpy as np
 import os
-import pybulletgym  # noqa F401 register PyBullet enviroments with open ai gym
+import pybullet_envs  # noqa F401
+# import pybulletgym  # noqa F401 register PyBullet enviroments with open ai gym
 import torch
 
 from algos import DDPG, TD3
@@ -17,10 +18,12 @@ def eval_policy(policy, env, seed, eval_episodes=10, test=False):
     avg_reward = 0.
     for _ in range(eval_episodes):
         if test:
-            env.render(mode='human', close=True)
+            env.render(mode='human', close=False)
         state, done = env.reset(), False
         hidden = None
         while not done:
+            if test:
+                env.render(mode='human', close=False)
             action, hidden = policy.select_action(np.array(state), hidden)
             # env.render(mode='human', close=False)
             state, reward, done, _ = env.step(action)
@@ -39,23 +42,23 @@ def main():
     # Policy name (TD3, DDPG or OurDDPG)
     parser.add_argument("--policy", default="TD3")
     # OpenAI gym environment name
-    parser.add_argument("--env", default="HalfCheetahPyBulletEnv-v0")
+    parser.add_argument("--env", default="Walker2DBulletEnv-v0")
     # Sets Gym, PyTorch and Numpy seeds
     parser.add_argument("--seed", default=0, type=int)
     # Time steps initial random policy is used
-    parser.add_argument("--start_timesteps", default=5e3, type=int)
+    parser.add_argument("--start_timesteps", default=1e4, type=int)
     # How often (time steps) we evaluate
     parser.add_argument("--eval_freq", default=1e3, type=int)
     # Max time steps to run environment
-    parser.add_argument("--max_timesteps", default=1e5, type=int)
+    parser.add_argument("--max_timesteps", default=1e6, type=int)
     # Std of Gaussian exploration noise
-    parser.add_argument("--expl_noise", default=0.25)
+    parser.add_argument("--expl_noise", default=0.1)
     # Batch size for both actor and critic
-    parser.add_argument("--batch_size", default=5e3, type=int)
+    parser.add_argument("--batch_size", default=100, type=int)
     # Memory size
     parser.add_argument("--memory_size", default=1e4, type=int)
     # Learning rate
-    parser.add_argument("--lr", default=1e-5, type=float)
+    parser.add_argument("--lr", default=1e-3, type=float)
     # Discount factor
     parser.add_argument("--discount", default=0.99)
     # Target network update rate
@@ -98,8 +101,8 @@ def main():
     action_dim = env.action_space.shape[0]
     max_action = float(env.action_space.high[0])
 
-    recurrent_actor = False
-    recurrent_critic = False
+    recurrent_actor = True
+    recurrent_critic = True
 
     kwargs = {
         "state_dim": state_dim,

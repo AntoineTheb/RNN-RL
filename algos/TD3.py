@@ -12,7 +12,7 @@ print(torch.cuda.is_available(), torch.backends.cudnn.enabled)
 
 class Actor(nn.Module):
     def __init__(
-        self, state_dim, action_dim, hidden_dim, max_action, is_recurrent=True
+        self, state_dim, action_dim, hidden_dim, max_action, is_recurrent=False
     ):
         super(Actor, self).__init__()
         self.recurrent = is_recurrent
