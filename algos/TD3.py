@@ -113,6 +113,7 @@ class TD3(object):
             recurrent_actor=False,
             recurrent_critic=False,
     ):
+        self.on_policy = False
         self.recurrent = recurrent_actor
         self.actor = Actor(
             state_dim, action_dim, hidden_dim, max_action,

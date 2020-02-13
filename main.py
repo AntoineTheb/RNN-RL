@@ -183,10 +183,12 @@ def main():
         episode_reward += reward
 
         # Train agent after collecting sufficient data
-        if t >= args.start_timesteps:
+        if (not policy.on_policy) and t >= args.start_timesteps:
             policy.train(replay_buffer, args.batch_size)
 
         if done:
+            if policy.on_policy:
+                policy.train(replay_buffer)
             # +1 to account for 0 indexing. +0 on ep_timesteps since it
             #  will increment +1 even if done=True
             print(
