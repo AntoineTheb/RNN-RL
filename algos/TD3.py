@@ -158,7 +158,7 @@ class TD3(object):
             c_0 = c_0.to(device=device)
         return (h_0, c_0)
 
-    def select_action(self, state, hidden):
+    def select_action(self, state, hidden, test=True):
         if self.recurrent:
             state = torch.FloatTensor(
                 state.reshape(1, -1)).to(device)[:, None, :]

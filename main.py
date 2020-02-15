@@ -6,7 +6,7 @@ import pybullet_envs  # noqa F401
 # import pybulletgym  # noqa F401 register PyBullet enviroments with open ai gym
 import torch
 
-from algos import DDPG, TD3
+from algos import DDPG, PPO, TD3
 from utils import memory
 
 
@@ -74,6 +74,8 @@ def main():
     parser.add_argument("--policy_freq", default=2, type=int)
     # Model width
     parser.add_argument("--hidden_size", default=256, type=int)
+    # Use recurrent policies or not
+    parser.add_argument("--recurrent", action="store_true")
     # Save model and optimizer parameters
     parser.add_argument("--save_model", action="store_true")
     # Model load file name, "" doesn't load, "default" uses file_name
@@ -105,8 +107,8 @@ def main():
     max_action = float(env.action_space.high[0])
 
     # TODO: Add this to parameters
-    recurrent_actor = True
-    recurrent_critic = True
+    recurrent_actor = args.recurrent
+    recurrent_critic = args.recurrent
 
     kwargs = {
         "state_dim": state_dim,
@@ -129,6 +131,9 @@ def main():
 
     elif args.policy == "DDPG":
         policy = DDPG.DDPG(**kwargs)
+
+    elif args.policy == "PPO":
+        policy = PPO.PPO(**kwargs)
 
     if args.load_model != "":
         policy_file = file_name \
@@ -189,6 +194,7 @@ def main():
         if done:
             if policy.on_policy:
                 policy.train(replay_buffer)
+                replay_buffer.clear_memory()
             # +1 to account for 0 indexing. +0 on ep_timesteps since it
             #  will increment +1 even if done=True
             print(
