@@ -51,11 +51,16 @@ class ReplayBuffer(object):
         self.size = min(self.size + 1, self.max_size)
 
     def sample(self, batch_size=100, shuffle=True):
-        if not shuffle:
-            ind = np.arange(0, self.size)
-        else:
+        # TODO: Clean this up. There's probably a cleaner way to seperate
+        # on-policy and off-policy sampling. Clean up extra-dimension indexing
+        # also
+        if shuffle:
             ind = np.random.randint(0, self.size, size=int(batch_size))
+        else:
+            ind = np.arange(0, self.size)
 
+        # TODO: Clean up indexing. RNNs needs batch shape of
+        # Batch size * Timesteps * Input size
         if self.recurrent:
             h = torch.tensor(self.h[ind][None, ...],
                              requires_grad=True,
@@ -70,7 +75,9 @@ class ReplayBuffer(object):
                               requires_grad=True,
                               dtype=torch.float).to(self.device)
 
-            # TODO: Return hidden states or not
+            # TODO: Return hidden states or not, or only return the
+            # first hidden state (although it's already been detached,
+            # so returning nothing might be better)
             hidden = (h, c)
             next_hidden = (nh, nc)
 
@@ -84,7 +91,7 @@ class ReplayBuffer(object):
                 self.reward[ind][:, None, :]).to(self.device)
             d = torch.FloatTensor(
                 self.not_done[ind][:, None, :]).to(self.device)
-
+        # FF only need Batch size * Input size
         else:
             hidden = None
             next_hidden = None

@@ -133,6 +133,7 @@ def main():
         policy = DDPG.DDPG(**kwargs)
 
     elif args.policy == "PPO":
+        # TODO: Add kwargs for PPO
         policy = PPO.PPO(**kwargs)
 
     if args.load_model != "":
@@ -191,7 +192,7 @@ def main():
         if (not policy.on_policy) and t >= args.start_timesteps:
             policy.train(replay_buffer, args.batch_size)
 
-        if done:
+        if done:  # TODO: PPO allows for partial trajectory training
             if policy.on_policy:
                 policy.train(replay_buffer)
                 replay_buffer.clear_memory()

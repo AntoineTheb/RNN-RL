@@ -26,14 +26,20 @@ An other option would be to keep the hidden state of the RNN associated with eac
 - Implement deep RL algorithms in a simple and understandable way
 - Acquire a better understanding of how recurrence impacts DRL algorithms
 
+## TODOs
+- Hidden state handling strategies
+- More algorithms (A2C, R2D1, BCQ, REINFORCE, etc.)
+- Comments, lots of them
+- Results
+- Cleanup
+
 ## Implementations
 - TD3
 - DDPG
-- PPO (WIP)
+- PPO (needs tweaking)
 
 ## How to install
 ```
 $ pip install -r requirements.txt`
-$ install_pybulletgym.sh`
 ```
   

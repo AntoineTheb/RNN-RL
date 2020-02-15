@@ -143,16 +143,19 @@ class PPO(object):
                 next_state,
                 action,
                 next_hidden)
+
             # V_pi'(s) and pi'(a|s)
             v_s, logprob, dist_entropy = self.target.evaluate(
                 state,
                 action,
                 hidden)
 
+            # log_prob of pi(a|s)
             _, prob_a, _ = self.actorcritic.evaluate(
                 state,
                 action,
                 hidden)
+
             # Reward + future discounted reward estimation
             td = reward + self.discount * v_prime * not_done
 
@@ -175,13 +178,13 @@ class PPO(object):
             if any(advantages.size()) > 1:
                 advantages = \
                     (advantages-advantages.mean()) / (advantages.std() + 1e-6)
-
             advantages = advantages.squeeze(-1)
+
             # Ratio between probabilities of action according to policy and
             # target policies
             assert(logprob.size() == prob_a.size())
-
             ratio = torch.exp(logprob - prob_a)
+
             # Surrogate policy loss
             assert ratio.size() == advantages.size(), \
                 '{}, {}'.format(ratio.size(), advantages.size())
