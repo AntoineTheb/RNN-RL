@@ -21,6 +21,7 @@ An other option would be to keep the hidden state of the RNN associated with eac
 - Does the critic need to predict at each timestep to have its own hidden state ?
 - Could the hidden state even be discarded ?
 - With Actor-Critic methods, do they both have to be recurrent ?
+- Are all these questions dependant on the algorithm used ?
 
 ## Goals
 - Implement deep RL algorithms in a simple and understandable way
