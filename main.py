@@ -134,7 +134,10 @@ def main():
 
     elif args.policy == "PPO":
         # TODO: Add kwargs for PPO
+        kwargs["K_epochs"] = 10
         policy = PPO.PPO(**kwargs)
+        args.start_timesteps = 0
+        n_update = 4000
 
     if args.load_model != "":
         policy_file = file_name \
@@ -160,7 +163,7 @@ def main():
     episode_num = 0
     hidden = policy.get_initial_states()
 
-    for t in range(int(args.max_timesteps)):
+    for t in range(1, int(args.max_timesteps)):
 
         episode_timesteps += 1
 
@@ -191,11 +194,11 @@ def main():
         # Train agent after collecting sufficient data
         if (not policy.on_policy) and t >= args.start_timesteps:
             policy.train(replay_buffer, args.batch_size)
+        elif policy.on_policy and t % n_update == 0:
+            policy.train(replay_buffer)
+            replay_buffer.clear_memory()
 
-        if done:  # TODO: PPO allows for partial trajectory training
-            if policy.on_policy:
-                policy.train(replay_buffer)
-                replay_buffer.clear_memory()
+        if done:
             # +1 to account for 0 indexing. +0 on ep_timesteps since it
             #  will increment +1 even if done=True
             print(

@@ -50,14 +50,11 @@ class ReplayBuffer(object):
         self.ptr = (self.ptr + 1) % self.max_size
         self.size = min(self.size + 1, self.max_size)
 
-    def sample(self, batch_size=100, shuffle=True):
+    def sample(self, batch_size=100):
         # TODO: Clean this up. There's probably a cleaner way to seperate
         # on-policy and off-policy sampling. Clean up extra-dimension indexing
         # also
-        if shuffle:
-            ind = np.random.randint(0, self.size, size=int(batch_size))
-        else:
-            ind = np.arange(0, self.size)
+        ind = np.random.randint(0, self.size, size=int(batch_size))
 
         # TODO: Clean up indexing. RNNs needs batch shape of
         # Batch size * Timesteps * Input size
@@ -91,6 +88,56 @@ class ReplayBuffer(object):
                 self.reward[ind][:, None, :]).to(self.device)
             d = torch.FloatTensor(
                 self.not_done[ind][:, None, :]).to(self.device)
+        # FF only need Batch size * Input size
+        else:
+            hidden = None
+            next_hidden = None
+
+            s = torch.FloatTensor(self.state[ind]).to(self.device)
+            a = torch.FloatTensor(self.action[ind]).to(self.device)
+            ns = \
+                torch.FloatTensor(self.next_state[ind]).to(self.device)
+            r = torch.FloatTensor(self.reward[ind]).to(self.device)
+            d = torch.FloatTensor(self.not_done[ind]).to(self.device)
+
+        return s, a, ns, r, d, hidden, next_hidden
+
+    def on_policy_sample(self):
+        ind = np.arange(0, self.size)
+
+        # TODO: Clean up indexing. RNNs needs batch shape of
+        # Batch size * Timesteps * Input size
+        if self.recurrent:
+            h = torch.tensor(self.h[[0]][None, ...],
+                             requires_grad=True,
+                             dtype=torch.float).to(self.device)
+            c = torch.tensor(self.c[[0]][None, ...],
+                             requires_grad=True,
+                             dtype=torch.float).to(self.device)
+            nh = torch.tensor(self.nh[[1]][None, ...],
+                              requires_grad=True,
+                              dtype=torch.float).to(self.device)
+            nc = torch.tensor(self.nc[[1]][None, ...],
+                              requires_grad=True,
+                              dtype=torch.float).to(self.device)
+
+            # TODO: Return hidden states or not, or only return the
+            # first hidden state (although it's already been detached,
+            # so returning nothing might be better)
+            hidden = (h, c)
+            next_hidden = (nh, nc)
+
+            s = torch.FloatTensor(
+                self.state[ind][None, :, :]).to(self.device)
+            a = torch.FloatTensor(
+                self.action[ind][None, :, :]).to(self.device)
+            ns = torch.FloatTensor(
+                self.next_state[ind][None, :, :]).to(self.device)
+            # reward and dones don't need to be "batched"
+            r = torch.FloatTensor(
+                self.reward[ind]).to(self.device)
+            d = torch.FloatTensor(
+                self.not_done[ind]).to(self.device)
         # FF only need Batch size * Input size
         else:
             hidden = None
