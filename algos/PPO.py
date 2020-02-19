@@ -230,8 +230,6 @@ class PPO(object):
         self.actorcritic.load_state_dict(self.target.state_dict())
         torch.cuda.empty_cache()
 
-        pass
-
     def save(self, filename):
         torch.save(self.actorcritic.state_dict(), filename)
         torch.save(self.actorcritic.state_dict(),

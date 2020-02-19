@@ -53,7 +53,7 @@ def main():
     # How often (time steps) we evaluate
     parser.add_argument("--eval_freq", default=5e3, type=int)
     # Max time steps to run environment
-    parser.add_argument("--max_timesteps", default=1e6, type=int)
+    parser.add_argument("--max_timesteps", default=5e5, type=int)
     # Std of Gaussian exploration noise
     parser.add_argument("--expl_noise", default=0.1)
     # Batch size for both actor and critic
@@ -67,7 +67,7 @@ def main():
     # Target network update rate
     parser.add_argument("--tau", default=0.005)
     # Noise added to target policy during critic update
-    parser.add_argument("--policy_noise", default=0.2)
+    parser.add_argument("--policy_noise", default=0.25)
     # Range to clip target policy noise
     parser.add_argument("--noise_clip", default=0.5)
     # Frequency of delayed policy updates
