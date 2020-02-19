@@ -66,8 +66,8 @@ for env in envs:
 
         plot_mean_and_CI(mean, ub, lb, color_mean=color, color_shading=color)
 
-    plt.xticks([0., 40., 80., 120., 160., 200.], [
-               '0.0', '0.2', '0.4', '0.6', '0.8', '1.0'])
+    plt.xticks([0., 20., 40., 60., 80., 100.], [
+               '0.0', '0.1', '0.2', '0.3', '0.4', '0.5'])
 
     bg = np.array([1, 1, 1])  # background of the legend is white
 
@@ -88,6 +88,6 @@ for env in envs:
     plt.tight_layout()
     plt.grid()
     # plt.show()
-    plt.savefig('plots/%s.png' % env)
+    plt.savefig('plots/{}.png'.format(env))
     plt.clf()
     plt.cla()
