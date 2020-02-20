@@ -101,16 +101,16 @@ class ReplayBuffer(object):
         if not self.recurrent:
             return self._ff_sampling(ind)
 
-        h = torch.tensor(self.h[[0]][None, ...],
+        h = torch.tensor(self.h[ind][None, ...],
                          requires_grad=True,
                          dtype=torch.float).to(self.device)
-        c = torch.tensor(self.c[[0]][None, ...],
+        c = torch.tensor(self.c[ind][None, ...],
                          requires_grad=True,
                          dtype=torch.float).to(self.device)
-        nh = torch.tensor(self.nh[[1]][None, ...],
+        nh = torch.tensor(self.nh[ind][None, ...],
                           requires_grad=True,
                           dtype=torch.float).to(self.device)
-        nc = torch.tensor(self.nc[[1]][None, ...],
+        nc = torch.tensor(self.nc[ind][None, ...],
                           requires_grad=True,
                           dtype=torch.float).to(self.device)
 
@@ -121,11 +121,12 @@ class ReplayBuffer(object):
         next_hidden = (nh, nc)
 
         s = torch.FloatTensor(
-            self.state[ind][None, :, :]).to(self.device)
+            self.state[ind][:, None, :]).to(self.device)
         a = torch.FloatTensor(
-            self.action[ind][None, :, :]).to(self.device)
+            self.action[ind][:, None, :]).to(self.device)
         ns = torch.FloatTensor(
-            self.next_state[ind][None, :, :]).to(self.device)
+            self.next_state[ind][:, None, :]).to(self.device)
+
         # reward and dones don't need to be "batched"
         r = torch.FloatTensor(
             self.reward[ind]).to(self.device)

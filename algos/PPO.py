@@ -62,9 +62,6 @@ class ActorCritic(nn.Module):
         action_logprob = dist.log_prob(action)
         entropy = dist.entropy()
         values = self.critic(p)
-        if self.recurrent:
-            values = values[0, ...]
-            action_logprob = action_logprob[0, ...]
 
         return values[..., 0], action_logprob, entropy
 
@@ -147,13 +144,13 @@ class PPO(object):
         for r, is_terminal in zip(reversed(reward), reversed(1 - not_done)):
             if is_terminal:
                 discounted_reward = 0
-            discounted_reward = reward[0] + (self.discount * discounted_reward)
+            discounted_reward = r + (self.discount * discounted_reward)
             rewards.insert(0, discounted_reward)
 
         # Normalizing the rewards:
         rewards = torch.tensor(rewards).to(device)
         rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-5)
-
+        rewards = rewards[..., None]
         # log_prob of pi(a|s)
         _, prob_a, _ = self.actorcritic.evaluate(
             state,
@@ -169,11 +166,13 @@ class PPO(object):
                 state,
                 action,
                 hidden)
+
             # Finding Surrogate Loss:
             advantages = rewards - v_s
 
             # Ratio between probabilities of action according to policy and
             # target policies
+
             assert(logprob.size() == prob_a.size())
             ratio = torch.exp(logprob - prob_a)
 
