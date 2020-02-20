@@ -53,9 +53,9 @@ def main():
     # How often (time steps) we evaluate
     parser.add_argument("--eval_freq", default=5e3, type=int)
     # Max time steps to run environment
-    parser.add_argument("--max_timesteps", default=5e5, type=int)
+    parser.add_argument("--max_timesteps", default=1e6, type=int)
     # Std of Gaussian exploration noise
-    parser.add_argument("--expl_noise", default=0.1)
+    parser.add_argument("--expl_noise", default=0.25)
     # Batch size for both actor and critic
     parser.add_argument("--batch_size", default=100, type=int)
     # Memory size
@@ -180,6 +180,7 @@ def main():
 
         # Perform action
         next_state, reward, done, _ = env.step(action)
+
         done_bool = float(
             done) if episode_timesteps < env._max_episode_steps else 0
 

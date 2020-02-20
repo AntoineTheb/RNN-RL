@@ -40,7 +40,7 @@ class ActorCritic(nn.Module):
         else:
             p, h = F.relu(self.l1(state)), None
 
-        p = F.relu(self.l2(p))
+        p = F.relu(self.l2(p.data))
         return p, h
 
     def act(self, state, hidden):
@@ -53,17 +53,22 @@ class ActorCritic(nn.Module):
         p, h = self.forward(state, hidden)
         action_mean, _ = self.act(state, hidden)
 
-        cov_mat = torch.diag(
-            torch.full((self.action_dim,),
-                       self.policy_noise*self.policy_noise)).to(device)
+        cov_mat = torch.eye(self.action_dim).to(device) * self.policy_noise
+        # cov_mat = torch.diag(
+        #     torch.full((self.action_dim,),
+        #                self.policy_noise*self.policy_noise)).to(device)
 
         dist = MultivariateNormal(action_mean, cov_mat)
         _ = dist.sample()
         action_logprob = dist.log_prob(action)
         entropy = dist.entropy()
         values = self.critic(p)
+        if self.recurrent:
+            values = values[..., 0]
+        else:
+            action_logprob = action_logprob[..., None]
 
-        return values[..., 0], action_logprob, entropy
+        return values, action_logprob, entropy
 
 
 class PPO(object):
@@ -151,6 +156,7 @@ class PPO(object):
         rewards = torch.tensor(rewards).to(device)
         rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-5)
         rewards = rewards[..., None]
+
         # log_prob of pi(a|s)
         _, prob_a, _ = self.actorcritic.evaluate(
             state,
@@ -167,13 +173,16 @@ class PPO(object):
                 action,
                 hidden)
 
+            assert rewards.size() == v_s.size(), \
+                '{}, {}'.format(rewards.size(), v_s.size())
             # Finding Surrogate Loss:
             advantages = rewards - v_s
 
             # Ratio between probabilities of action according to policy and
             # target policies
 
-            assert(logprob.size() == prob_a.size())
+            assert logprob.size() == prob_a.size(), \
+                '{}, {}'.format(logprob.size(), prob_a.size())
             ratio = torch.exp(logprob - prob_a)
 
             # Surrogate policy loss
@@ -231,7 +240,7 @@ class PPO(object):
 
     def save(self, filename):
         torch.save(self.actorcritic.state_dict(), filename)
-        torch.save(self.actorcritic.state_dict(),
+        torch.save(self.optimizer.state_dict(),
                    filename + "_optimizer")
 
     def load(self, filename):
