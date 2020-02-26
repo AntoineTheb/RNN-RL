@@ -135,9 +135,10 @@ def main():
     elif args.policy == "PPO":
         # TODO: Add kwargs for PPO
         kwargs["K_epochs"] = 10
+        kwargs["eps_clip"] = 0.1
         policy = PPO.PPO(**kwargs)
         args.start_timesteps = 0
-        n_update = 4000
+        n_update = 2048
 
     if args.load_model != "":
         policy_file = file_name \

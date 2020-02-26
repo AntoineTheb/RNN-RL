@@ -1,9 +1,13 @@
 # Code based on:
 # https://github.com/georgesung/TD3/blob/master/plot_results.py
+
+import os
+
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
-from matplotlib.colors import colorConverter as cc
 import numpy as np
+
+from matplotlib.colors import colorConverter as cc
 from scipy import ndimage
 
 
@@ -47,7 +51,7 @@ class LegendObject(object):
 # Load my results
 envs = ['HopperBulletEnv-v0']
 algos = [('TD3', 'b'), ('DDPG', '#ffa500'), ('PPO', 'g')]
-seeds = range(3)
+seeds = range(6)
 
 # Plot and save to disk
 for env in envs:
@@ -55,7 +59,8 @@ for env in envs:
     for algo, color in algos:  # #ffa500 is orange
         results = np.array(
             [np.load(open('results/{}_{}_{}.npy'.format(algo, env, i), 'rb'))
-             for i in seeds])
+             for i in seeds
+             if os.path.exists('results/{}_{}_{}.npy'.format(algo, env, i))])
         mean = np.mean(results, axis=0)
         std = np.std(results, axis=0)
         # smooth for visual clarity

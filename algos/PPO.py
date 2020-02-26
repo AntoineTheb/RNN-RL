@@ -38,9 +38,9 @@ class ActorCritic(nn.Module):
             self.l1.flatten_parameters()
             p, h = self.l1(state, hidden)
         else:
-            p, h = F.relu(self.l1(state)), None
+            p, h = torch.tanh(self.l1(state)), None
 
-        p = F.relu(self.l2(p.data))
+        p = torch.tanh(self.l2(p.data))
         return p, h
 
     def act(self, state, hidden):
@@ -54,15 +54,13 @@ class ActorCritic(nn.Module):
         action_mean, _ = self.act(state, hidden)
 
         cov_mat = torch.eye(self.action_dim).to(device) * self.policy_noise
-        # cov_mat = torch.diag(
-        #     torch.full((self.action_dim,),
-        #                self.policy_noise*self.policy_noise)).to(device)
 
         dist = MultivariateNormal(action_mean, cov_mat)
         _ = dist.sample()
         action_logprob = dist.log_prob(action)
         entropy = dist.entropy()
         values = self.critic(p)
+
         if self.recurrent:
             values = values[..., 0]
         else:
@@ -82,7 +80,7 @@ class PPO(object):
         tau=0.005,
         policy_noise=0.2,
         eps_clip=.2,
-        lmbda=0.98,
+        lmbda=0.95,
         lr=3e-4,
         K_epochs=80,
         recurrent_actor=False,
