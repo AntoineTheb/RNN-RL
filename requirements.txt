@@ -9,7 +9,7 @@ gym==0.7.4
 idna==2.8
 mccabe==0.6.1
 numpy==1.18.1
-Pillow==7.0.0
+Pillow==8.1.1
 pybullet==2.6.5
 pycodestyle==2.5.0
 pyflakes==2.1.1
