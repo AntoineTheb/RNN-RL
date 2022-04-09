@@ -9,6 +9,10 @@ import torch
 from algos import DDPG, PPO, TD3
 from utils import memory
 
+from world import World
+from generator import LaneVehicleGenerator
+from metric import TravelTimeMetric
+from environment import TSCEnv
 
 # Runs policy for X episodes and returns average reward
 # A fixed seed is used for the eval environment
@@ -95,10 +99,17 @@ def main():
     if args.save_model and not os.path.exists("./models"):
         os.makedirs("./models")
 
-    env = gym.make(args.env)
-
+    #env = gym.make(args.env)
+    config_file = 'config-dqn.json'
+    thread = 2
+    world = World(config_file, thread_num=thread)
+    agents = []
+    metric = TravelTimeMetric(world)
+    env = TSCEnv(world, agents, metric)
+    print(env)
+    exit()
     # Set seeds
-    env.seed(args.seed)
+    #env.seed(args.seed)
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
 
