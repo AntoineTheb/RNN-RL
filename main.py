@@ -222,7 +222,6 @@ class RNN_RL():
                 for agent in self.agents:
                     agent.save_model(self.save_dir)
             log_text = "{}, {}".format(e, self.env.eng.get_average_travel_time())
-            print("DQN CNN agent save")
             for agent_id, agent in enumerate(self.agents):
                 log_text += ", {}, {}".format(agent_id, episodes_rewards[agent_id] / episodes_decision_num)
             print(log_text)
