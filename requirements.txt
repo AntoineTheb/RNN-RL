@@ -5,7 +5,7 @@ cloudpickle==1.2.2
 entrypoints==0.3
 flake8==3.7.9
 future==0.18.2
-gym==0.7.4
+gym
 idna==2.8
 mccabe==0.6.1
 numpy==1.18.1
@@ -20,3 +20,4 @@ six==1.14.0
 torch==1.4.0
 torchvision==0.5.0
 urllib3==1.26.5
+pybullet
