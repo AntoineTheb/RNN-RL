@@ -43,195 +43,199 @@ def eval_policy(policy, env_name, seed, eval_episodes=10, test=False):
     print("---------------------------------------")
     return avg_reward
 
+class RNN_RL():
 
-def main():
-    parser = argparse.ArgumentParser()
-    # Policy name (TD3, DDPG or OurDDPG)
-    parser.add_argument("--policy", default="TD3")
-    # OpenAI gym environment name
-    parser.add_argument("--env", default="HopperBulletEnv-v0")
-    # Sets Gym, PyTorch and Numpy seeds
-    parser.add_argument("--seed", default=0, type=int)
-    # Time steps initial random policy is used
-    parser.add_argument("--start_timesteps", default=1e4, type=int)
-    # How often (time steps) we evaluate
-    parser.add_argument("--eval_freq", default=5e3, type=int)
-    # Max time steps to run environment
-    parser.add_argument("--max_timesteps", default=1e6, type=int)
-    # Std of Gaussian exploration noise
-    parser.add_argument("--expl_noise", default=0.25)
-    # Batch size for both actor and critic
-    parser.add_argument("--batch_size", default=100, type=int)
-    # Memory size
-    parser.add_argument("--memory_size", default=1e6, type=int)
-    # Learning rate
-    parser.add_argument("--lr", default=3e-4, type=float)
-    # Discount factor
-    parser.add_argument("--discount", default=0.99)
-    # Target network update rate
-    parser.add_argument("--tau", default=0.005)
-    # Noise added to target policy during critic update
-    parser.add_argument("--policy_noise", default=0.25)
-    # Range to clip target policy noise
-    parser.add_argument("--noise_clip", default=0.5)
-    # Frequency of delayed policy updates
-    parser.add_argument("--policy_freq", default=2, type=int)
-    # Model width
-    parser.add_argument("--hidden_size", default=256, type=int)
-    # Use recurrent policies or not
-    parser.add_argument("--recurrent", action="store_true")
-    # Save model and optimizer parameters
-    parser.add_argument("--save_model", action="store_true")
-    # Model load file name, "" doesn't load, "default" uses file_name
-    parser.add_argument("--load_model", default="")
-    # Don't train and just run the model
-    parser.add_argument("--test", action="store_true")
-    args = parser.parse_args()
+    def __init__(self, config_file, timesteps, episodes):
+        # Policy name (TD3, DDPG or OurDDPG)
+        self.policy = "TD3"
+        # Threads
+        self.threads = 2
+        # Config File 
+        self.config_file = config_file
+        # Sets Gym, PyTorch and Numpy seeds
+        self.seed = 0
+        # Time steps initial random policy is used
+        self.start_timesteps = 1e4
+        # How often (time steps) we evaluate
+        self.eval_freq= 10
+        # Max time steps to run environment
+        self.max_timesteps = 1e6
+        # Std of Gaussian exploration noise
+        self.expl_noise = 0.25
+        # Batch size for both actor and critic
+        self.batch_size = 100
+        # Memory size
+        self.memory_size = 1e6
+        # Learning rate
+        self.lr = 3e-4
+        # Discount factor
+        self.discount = 0.99
+        # Target network update rate
+        self.tau = 0.005
+        # Noise added to target policy during critic update
+        self.policy_noise = 0.25
+        # Range to clip target policy noise
+        self.noise_clip = 0.5
+        # Frequency of delayed policy updates
+        self.policy_freq = 2
+        # Model width
+        self.hidden_size = 256
+        # Use recurrent policies or not
+        self.recurrent = True
+        # Save model and optimizer parameters
+        self.save_model = True
+        # Model load file name, "" doesn't load, "default" uses file_name
+        self.load_model = ''
+        # Don't train and just run the model
+        self.test = False
+        # Agents
+        self.agents = []
+        # World 
+        self.world = World(config_file, thread_num=self.threads)
+        # Metrics
+        self.metric = TravelTimeMetric(self.world)
+        # Steps
+        self.steps = timesteps
+        # State Dims
+        self.state_dim = 28
+        # Max actions
+        self.max_action = 8
+        # Recurrent Actor
+        self.recurrent_actor = True
+        # Recurrent Critic
+        self.recurrent_critic = True
+        # Episodes
+        self.episodes = episodes
+        self.save_rate = 20000
+        self.save_dir = 'model/dqn'
+        self.log_dir = 'log/dqn'
+        self.action_interval = 20
+        
+        file_name = f"{self.policy}_{self.seed}"
+        print("---------------------------------------")
+        print(f"Policy: {self.policy}, Seed: {self.seed}")
+        print("---------------------------------------")
 
-    file_name = f"{args.policy}_{args.env}_{args.seed}"
-    print("---------------------------------------")
-    print(f"Policy: {args.policy}, Env: {args.env}, Seed: {args.seed}")
-    print("---------------------------------------")
+        if not os.path.exists("./results"):
+            os.makedirs("./results")
 
-    if not os.path.exists("./results"):
-        os.makedirs("./results")
+        if self.save_model and not os.path.exists("./models"):
+            os.makedirs("./models")
 
-    if args.save_model and not os.path.exists("./models"):
-        os.makedirs("./models")
+        torch.manual_seed(self.seed)
+        np.random.seed(self.seed)
 
-    #env = gym.make(args.env)
-    config_file = 'config-dqn.json'
-    thread = 2
-    world = World(config_file, thread_num=thread)
-    agents = []
-    metric = TravelTimeMetric(world)
-    env = TSCEnv(world, agents, metric)
-    print(env)
-    exit()
-    # Set seeds
-    #env.seed(args.seed)
-    torch.manual_seed(args.seed)
-    np.random.seed(args.seed)
+        if self.policy == "TD3":
+            for i in self.world.intersections:
+                self.agents.append(TD3.TD3(
+                    # Action Dimension
+                    gym.spaces.Discrete(len(i.phases)),
+                    # Observation Generator
+                    LaneVehicleGenerator(self.world, i, ["lane_count"], in_only=True, average=None),
+                    # Reward Generator
+                    LaneVehicleGenerator(self.world, i, ["lane_waiting_count"], in_only=True, average="all", negative=True),
+                    # ID
+                    i,
+                    # Max Action
+                    self.max_action,
+                    # Hidden Dims
+                    self.hidden_size,
+                    # Discount
+                    self.discount,
+                    # Tau
+                    self.tau,
+                    # Policy Noise
+                    self.policy_noise * self.max_action,
+                    # Noise Clip
+                    self.noise_clip * self.max_action,
+                    # Policy Freq
+                    self.policy_freq,
+                    # Learning Rate
+                    3e-4,
+                    # Recurrent Actor
+                    self.recurrent_actor,
+                    # Recurrent Critic
+                    self.recurrent_critic,
+                    # State Dimension
+                    self.state_dim
+                ))
 
-    state_dim = env.observation_space.shape[0]
-    action_dim = env.action_space.shape[0]
-    max_action = float(env.action_space.high[0])
+        if self.load_model != "":
+            policy_file = file_name \
+                if self.load_model == "default" else self.load_model
+            policy.load(f"{policy_file}")
 
-    # TODO: Add this to parameters
-    recurrent_actor = args.recurrent
-    recurrent_critic = args.recurrent
+        self.replay_buffer = memory.ReplayBuffer(
+            self.state_dim, self.max_action , self.hidden_size,
+            self.memory_size, recurrent=self.recurrent_actor)
 
-    kwargs = {
-        "state_dim": state_dim,
-        "action_dim": action_dim,
-        "max_action": max_action,
-        "hidden_dim": args.hidden_size,
-        "discount": args.discount,
-        "tau": args.tau,
-        "recurrent_actor": recurrent_actor,
-        "recurrent_critic": recurrent_critic,
-    }
+        self.env = TSCEnv(self.world, self.agents, self.metric)
 
-    # Initialize policy
-    if args.policy == "TD3":
-        # Target policy smoothing is scaled wrt the action scale
-        kwargs["policy_noise"] = args.policy_noise * max_action
-        kwargs["noise_clip"] = args.noise_clip * max_action
-        kwargs["policy_freq"] = args.policy_freq
-        policy = TD3.TD3(**kwargs)
+        
+    def train(self):
+        total_decision_num = 0
+        for e in range(self.episodes):
+            last_obs = self.env.reset()
+            if e % self.save_rate == self.save_rate - 1:
+                self.env.eng.set_save_replay(True)
+                self.env.eng.set_replay_file("replay_%s.txt" % e)
+            else:
+                self.env.eng.set_save_replay(False)
+            episodes_rewards = [0 for i in self.agents]
+            episodes_decision_num = 0
+            i = 0
+            while i < self.steps:
+                if i % self.action_interval == 0:
+                    actions = []
+                    for agent_id, agent in enumerate(self.agents):
+                        if total_decision_num > agent.learning_start:
+                        #if True:
+                            actions.append(agent.get_action(last_obs[agent_id]))
+                        else:
+                            actions.append(agent.sample())
 
-    elif args.policy == "DDPG":
-        policy = DDPG.DDPG(**kwargs)
+                    rewards_list = []
+                    for _ in range(self.action_interval):
+                        obs, rewards, dones, _ = self.env.step(actions)
+                        i += 1
+                        rewards_list.append(rewards)
+                    rewards = np.mean(rewards_list, axis=0)
 
-    elif args.policy == "PPO":
-        # TODO: Add kwargs for PPO
-        kwargs["K_epochs"] = 10
-        kwargs["eps_clip"] = 0.1
-        policy = PPO.PPO(**kwargs)
-        args.start_timesteps = 0
-        n_update = 2048
+                    for agent_id, agent in enumerate(self.agents):
+                        agent.remember(last_obs[agent_id], actions[agent_id], rewards[agent_id], obs[agent_id])
+                        episodes_rewards[agent_id] += rewards[agent_id]
+                        episodes_decision_num += 1
+                        total_decision_num += 1
+                    
+                    last_obs = obs
 
-    if args.load_model != "":
-        policy_file = file_name \
-            if args.load_model == "default" else args.load_model
-        policy.load(f"{policy_file}")
-
-    if args.test:
-        eval_policy(policy, args.env, args.seed, eval_episodes=10, test=True)
-        return
-
-    replay_buffer = memory.ReplayBuffer(
-        state_dim, action_dim, args.hidden_size,
-        args.memory_size, recurrent=recurrent_actor)
-
-    # Evaluate untrained policy
-    evaluations = [eval_policy(policy, args.env, args.seed)]
-
-    best_reward = evaluations[-1]
-
-    state, done = env.reset(), False
-    episode_reward = 0
-    episode_timesteps = 0
-    episode_num = 0
-    hidden = policy.get_initial_states()
-
-    for t in range(1, int(args.max_timesteps)):
-
-        episode_timesteps += 1
-
-        # Select action randomly or according to policy
-        if t < args.start_timesteps:
-            action = env.action_space.sample()
-            _, next_hidden = policy.select_action(np.array(state), hidden)
-        else:
-            a, next_hidden = policy.select_action(np.array(state), hidden)
-            action = (
-                a + np.random.normal(
-                    0, max_action * args.expl_noise, size=action_dim)
-            ).clip(-max_action, max_action)
-
-        # Perform action
-        next_state, reward, done, _ = env.step(action)
-
-        done_bool = float(
-            done) if episode_timesteps < env._max_episode_steps else 0
-
-        # Store data in replay buffer
-        replay_buffer.add(
-            state, action, next_state, reward, done_bool, hidden, next_hidden)
-
-        state = next_state
-        hidden = next_hidden
-        episode_reward += reward
-
-        # Train agent after collecting sufficient data
-        if (not policy.on_policy) and t >= args.start_timesteps:
-            policy.train(replay_buffer, args.batch_size)
-        elif policy.on_policy and t % n_update == 0:
-            policy.train(replay_buffer)
-            replay_buffer.clear_memory()
-
-        if done:
-            # +1 to account for 0 indexing. +0 on ep_timesteps since it
-            #  will increment +1 even if done=True
-            print(
-                f"Total T: {t+1} Episode Num: {episode_num+1} "
-                f"Episode T: {episode_timesteps} Reward: {episode_reward:.3f}")
-            # Reset environment
-            state, done = env.reset(), False
-            episode_reward = 0
-            episode_timesteps = 0
-            episode_num += 1
-            hidden = policy.get_initial_states()
-
-        # Evaluate episode
-        if (t + 1) % args.eval_freq == 0:
-            evaluations.append(eval_policy(policy, args.env, args.seed))
-            if evaluations[-1] > best_reward and args.save_model:
-                policy.save(f"./models/{file_name}")
-
-            np.save(f"./results/{file_name}", evaluations)
+                for agent_id, agent in enumerate(self.agents):
+                    if total_decision_num > agent.learning_start and total_decision_num % agent.update_model_freq == agent.update_model_freq - 1:
+                        agent.replay()
+                    if total_decision_num > agent.learning_start and total_decision_num % agent.update_target_model_freq == agent.update_target_model_freq - 1:
+                        agent.update_target_network()
+                if all(dones):
+                    break
+            if e % self.save_rate == self.save_rate - 1:
+                if not os.path.exists(self.save_dir):
+                    os.makedirs(self.save_dir)
+                for agent in self.agents:
+                    agent.save_model(self.save_dir)
+            log_text = "{}, {}".format(e, self.env.eng.get_average_travel_time())
+            print("DQN CNN agent save")
+            for agent_id, agent in enumerate(self.agents):
+                log_text += ", {}, {}".format(agent_id, episodes_rewards[agent_id] / episodes_decision_num)
+            print(log_text)
+                    
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+    parser = argparse.ArgumentParser(description='Run RNN RL')
+    parser.add_argument('--timesteps', type=int, default=3600, help='Time for run - 3600 is 1h')
+    parser.add_argument('--episodes', type=int, default=100, help='Epoch steps')
+    args = parser.parse_args()
+
+    rnn_rl = RNN_RL('/notebooks/RNN-RL/config_dqn.json', args.timesteps, args.episodes)
+    print("Created ENV")
+    rnn_rl.train()

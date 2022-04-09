@@ -31,6 +31,9 @@ class ReplayBuffer(object):
     def add(
         self, state, action, next_state, reward, done, hiddens, next_hiddens
     ):
+        #print("state {} \ action {} \ next_state {} \ reward {} \ done {} \ hiddens {} \ next_hiddens {}".format(type(state), type(action),type(next_state),type(reward),type(done),type(hiddens),type(next_hiddens)))
+        #print("state {} \ action {} \ next_state {} \ reward {} \ done {} \ hiddens {} \ next_hiddens {}".format(state.shape, action.shape, next_state.shape, reward, done, hiddens, next_hiddens))
+        #exit()
         self.state[self.ptr] = state
         self.action[self.ptr] = action
         self.next_state[self.ptr] = next_state

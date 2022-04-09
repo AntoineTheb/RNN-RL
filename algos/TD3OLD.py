@@ -2,8 +2,6 @@ import copy
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from algos.rl_agent import RLAgent
-from collections import deque
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -18,7 +16,6 @@ class Actor(nn.Module):
     ):
         super(Actor, self).__init__()
         self.recurrent = is_recurrent
-        action_dim = action_dim.n
 
         if self.recurrent:
             self.l1 = nn.LSTM(state_dim, hidden_dim, batch_first=True)
@@ -48,7 +45,7 @@ class Critic(nn.Module):
     ):
         super(Critic, self).__init__()
         self.recurrent = is_recurrent
-        action_dim = action_dim.n
+
         if self.recurrent:
             self.l1 = nn.LSTM(
                 state_dim + action_dim, hidden_dim, batch_first=True)
@@ -100,31 +97,26 @@ class Critic(nn.Module):
         return q1
 
 
-class TD3(RLAgent):
+class TD3(object):
     def __init__(
             self,
-            action_space,
-            ob_generator, 
-            reward_generator, 
-            iid,
+            state_dim,
+            action_dim,
             max_action,
             hidden_dim,
-            discount,
-            tau,
-            policy_noise,
-            noise_clip,
-            policy_freq,
-            lr,
-            recurrent_actor,
-            recurrent_critic,
-            state_dim):
-        super().__init__(action_space, ob_generator, reward_generator)
-        self.iid = iid
-        self.ob_length = ob_generator.ob_length
+            discount=0.99,
+            tau=0.005,
+            policy_noise=0.2,
+            noise_clip=0.5,
+            policy_freq=2,
+            lr=3e-4,
+            recurrent_actor=False,
+            recurrent_critic=False,
+    ):
         self.on_policy = False
         self.recurrent = recurrent_actor
         self.actor = Actor(
-            state_dim, action_space, hidden_dim, max_action,
+            state_dim, action_dim, hidden_dim, max_action,
             is_recurrent=recurrent_actor
         ).to(device)
         self.actor_target = copy.deepcopy(self.actor)
@@ -132,7 +124,7 @@ class TD3(RLAgent):
             self.actor.parameters(), lr=lr)
 
         self.critic = Critic(
-            state_dim, action_space, hidden_dim,
+            state_dim, action_dim, hidden_dim,
             is_recurrent=recurrent_critic
         ).to(device)
         self.critic_target = copy.deepcopy(self.critic)
@@ -145,16 +137,9 @@ class TD3(RLAgent):
         self.policy_noise = policy_noise
         self.noise_clip = noise_clip
         self.policy_freq = policy_freq
-        self.learning_start = 2000
-        self.update_model_freq = 1
-        self.update_target_model_freq = 20
-        self.memory = deque(maxlen=2000)
+
         self.total_it = 0
 
-    def remember(self, ob, action, reward, next_ob):
-        self.memory.append((ob, action, reward, next_ob))
-    def sample(self):
-        return self.action_space.sample()
     def get_initial_states(self):
         h_0, c_0 = None, None
         if self.actor.recurrent:
@@ -212,8 +197,6 @@ class TD3(RLAgent):
         # Compute critic loss
         critic_loss = F.mse_loss(current_Q1, target_Q) + \
             F.mse_loss(current_Q2, target_Q)
-        
-        print(critic_loss)
 
         # Optimize the critic
         self.critic_optimizer.zero_grad()
